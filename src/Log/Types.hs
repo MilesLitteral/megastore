@@ -12,6 +12,7 @@ data LogLevel = LOG_ZONE
     |LOG_MESSAGE
     |LOG_WARNING
     |LOG_CONFIRMATION
+    |LOG_EVENT
     |LOG_EXCEPTION
     |LOG_ERROR
     deriving(Show, Eq, Enum)

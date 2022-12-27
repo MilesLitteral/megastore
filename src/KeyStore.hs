@@ -40,7 +40,6 @@ import qualified Data.ByteString.Internal as BS
 import qualified Data.Vector.Storable as V
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-
 import Control.Lens
 import Control.Lens.TH
 
@@ -80,7 +79,8 @@ autoUnpack savePath ks = do
 loadImage :: FilePath -> IO (BS.ByteString)
 loadImage path = do BS.readFile path
 
--- Key can be Str here or made into a hash, either way it will end up as a (String, ByteString)
+-- Key can be Str here or made into a hash, either way 
+-- it will end up as a (String, BS.ByteString)
 append :: (String, BS.ByteString) -> KeyStore -> KeyStore
 append info keystore = KeyStore $ [info] ++ (keystore ^. contents) 
 
@@ -94,11 +94,13 @@ search a = fmap snd . find ((== show (hash a)) . fst)
 search' :: String -> [(String, BS.ByteString)] -> Maybe (BS.ByteString)
 search' a = fmap snd . find ((== a) . fst)
 
+-- all the side effects of search come with this function
 keyExists :: String -> [(String, BS.ByteString)] -> Bool
 keyExists a store = case (search a store) of
     Nothing -> False
     Just _  -> True
 
+-- all the side effects of search' come with this function
 keyExists' :: String -> [(String, BS.ByteString)] -> Bool
 keyExists' a store = case (search' a store) of
     Nothing -> False
