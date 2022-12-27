@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import KeyStore
 import Data.List
 import GHC.Utils.IO.Unsafe
 import qualified Data.ByteString as BS
@@ -15,18 +15,13 @@ main = do
 
     let united  = KeyStore [("first", BS.empty), ("second", BS.empty), ("third", BS.empty)]
         testSet = KeyStore [("s1", a1), ("s2", a2), ("s3", a3), ("s4", a4)]
-    orderedMessageS  LOG_HEAD $ "First: "  ++ (show . fromJust $ search'  "first"  $ _contents united)
-    warnMessageS     LOG_BODY $ "Key Exists? (first): " ++ (show $ keyExists'  "first"  $ _contents united)
-    orderedMessageS  LOG_BODY $ "Second: " ++ (show . fromJust $ search'  "second" $ _contents united)
-    orderedMessageS  LOG_BODY $ "Third: "  ++ (show . fromJust $ search'  "third"  $ _contents united)
-    -- (warnMessageS LOG_BODY $ show $ _KeyStore ##? united)
-    -- (warnMessageS LOG_BODY $ show $ (map (\x -> (fst x, Lib.null $ snd x)) (_contents united)))
-    -- eventMessageS LOG_BODY "TEST CASE BELOW, STUDY CAREFULLY"
-    -- (warnMessageS LOG_BODY $ show $ ((_contents testSet)))
-    -- warnMessageS  LOG_TAIL $ show $ (_KeyStore ##? testSet)
     saveStore "./testGround/testA"   united  -- empty keystore
     saveStore "./testGround/testSet" testSet -- keystore of images
-    warnMessageS  LOG_TAIL $ "Unpack Keystore"
     loadedContents <- loadStore "./testGround/testSet.keystore"
     autoUnpack "./testGround" loadedContents
+    KeyStore.log 0 LOG_INFO "Test Log Neo"
+    KeyStore.log 1 LOG_WARNING   "Test Log Neo"
+    KeyStore.log 1 LOG_EXCEPTION "Test Log Neo"
+    KeyStore.log 2 LOG_INFO "Test Log Neo"
+
     -- eventMessageS LOG_BODY $ show $ loadedContents

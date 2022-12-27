@@ -4,8 +4,21 @@ module Log.Function.Classic where
 import Data.List
 import Log.Types
 import System.Exit
+import System.Directory
+import System.IO (hPutStrLn, stderr)
 import Log.Function.Internal
 import Control.Monad.IO.Class
+
+log :: Int -> LogLevel -> String -> IO ()
+log line level message = do
+  let pl     = log_prefix' line
+      prefix = log_color'  level
+      header = pl ++ prefix -- prefix ++ ":" ++ (show line) ++ "]"
+      
+  hPutStrLn stderr (header ++ (log_color level message) ++ "\x1b[0m")
+  if (level == LOG_ERROR) 
+    then  error message
+    else  return ()
 
 --Util Functions for managing message formatting
 logMessage :: MonadIO m => String -> m ()

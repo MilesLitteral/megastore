@@ -2,7 +2,6 @@
 
 module KeyStore
     ( KeyStore(..)
-    , Null(..)
     , _KeyStore
     , (?)
     , saveStore
@@ -110,9 +109,6 @@ remove str keystore = KeyStore $ filter ((== show str) . fst) (keystore ^. conte
 
 remove' :: Int -> KeyStore -> KeyStore
 remove' idx ls = KeyStore $ take idx (ls ^. contents) ++ drop (idx + 1) (ls ^. contents)
-
-displayContents :: KeyStore -> String
-displayContents store = (show $ (map (\x -> (fst x, Lib.null $ snd $ x)) (store ^. contents)))
 
 last' :: [a] -> a
 last' []  = error "no empty lists allowed"
