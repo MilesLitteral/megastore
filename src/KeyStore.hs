@@ -3,7 +3,6 @@
 module KeyStore
     ( KeyStore(..)
     , _KeyStore
-    , (?)
     , saveStore
     , loadStore
     , loadImage
