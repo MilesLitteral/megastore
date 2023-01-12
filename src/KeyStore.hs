@@ -6,6 +6,8 @@ module KeyStore
     , saveStore
     , loadStore
     , loadImage
+    , loadImageDirectory
+    , createKeystoreWithBulk
     , fromJust
     , append
     , search
@@ -87,7 +89,6 @@ loadImageDirectory folderPath = do
 
 createKeystoreWithBulk :: [BS.ByteString] -> String -> [(String, BS.ByteString)] --KeyStore
 createKeystoreWithBulk bytes nameScheme = zip (map (\x -> nameScheme ++ show x) [0..(fromIntegral $ length bytes)]) bytes
-
 
 -- Key can be Str here or made into a hash, either way 
 -- it will end up as a (String, BS.ByteString)
