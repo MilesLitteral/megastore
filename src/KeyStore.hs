@@ -42,6 +42,8 @@ import qualified Data.ByteString.Lazy as BL
 import Control.Lens
 import Control.Lens.TH
 
+import System.Directory (listDirectory)
+
 newtype KeyStore = KeyStore {_contents :: [(String, BS.ByteString)]} deriving(Ord, Eq, Show)
 
 instance Binary KeyStore where
@@ -77,6 +79,15 @@ autoUnpack savePath ks = do
 
 loadImage :: FilePath -> IO (BS.ByteString)
 loadImage path = do BS.readFile path
+
+loadImageDirectory :: FilePath -> IO [BS.ByteString]
+loadImageDirectory folderPath = do
+  directory <- listDirectory folderPath
+  return $ (\path -> BS.inlinePerformIO $ BS.readFile $ folderPath ++ path) <$> directory
+
+createKeystoreWithBulk :: [BS.ByteString] -> String -> [(String, BS.ByteString)] --KeyStore
+createKeystoreWithBulk bytes nameScheme = zip (map (\x -> nameScheme ++ show x) [0..(fromIntegral $ length bytes)]) bytes
+
 
 -- Key can be Str here or made into a hash, either way 
 -- it will end up as a (String, BS.ByteString)
