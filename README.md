@@ -4,4 +4,4 @@ A Haskell Filetype and Data Structure for super efficient storage of big image s
 
 ### Come back as this readme will be improved over time !
 
-# Hackage coming soon
+## Hackage coming soon
