@@ -34,12 +34,3 @@ x #. y = from x y
 x ##? y = case (y ^? x) of
     Nothing        -> False
     Just _         -> True
-    
-(#^.) :: s -> Getting a s a -> a 
-x #^. y = x ^. y 
-
-(^#~) :: (s -> a) -> (s -> b -> t) -> Lens s t a b
-g ^#~ s = lens g s
-
-(.^#) :: forall s t a b rep (r :: TYPE rep) . ALens s t a b -> ((s -> a) -> (s -> b -> t) -> r) -> r 
-x .^# o = withLens x o 
