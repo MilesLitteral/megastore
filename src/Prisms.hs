@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PolyKinds  #-}
 
-module Prisms ((?), (##), (##?), (#?), (#!), (#.), (#^.), (^#~)) where
+module Prisms ((?), (##), (##?), (#?), (#!), (#.)) where
 
 import GHC.Exts (TYPE)
 import Data.Maybe   ()
