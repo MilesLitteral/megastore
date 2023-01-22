@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, TypeSynonymInstances #-}
+{-# LANGUAGE RankNTypes, PolyKinds, TemplateHaskell, ScopedTypeVariables, TypeSynonymInstances #-}
 
 {-|
 Module      : KeyStore
@@ -11,7 +11,7 @@ Portability : POSIX
 
 Here is a longer description of this module, containing some
 commentary with @some markup@.
--}
+-} 
 module KeyStore
     ( KeyStore(..)
     , _KeyStore
@@ -32,8 +32,12 @@ module KeyStore
     , unpackStore'
     , autoUnpack
     , last'
-    , module Prisms
-    , module Log
+    , (?) 
+    , (##) 
+    , (##?) 
+    , (#?) 
+    , (#!) 
+    , (#.)
     ) where
 
 import Log
@@ -53,10 +57,15 @@ import qualified Data.ByteString.Internal as BS
 import qualified Data.Vector.Storable as V
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import Control.Lens
-import Control.Lens.TH
 
 import System.Directory (listDirectory)
+
+import GHC.Exts (TYPE)
+import Data.Maybe   ()
+import Data.Monoid  ( First )
+import Control.Monad.Representable.Reader
+import Control.Lens ( (^?), (^.), re, view, from, lens, withLens, Getting, Getter, AReview, AnIso, Iso, Prism, Lens, ALens) 
+import Control.Lens.TH
 
 -- | The Data Type itself
 newtype KeyStore = KeyStore {_contents :: [(String, BS.ByteString)]} deriving(Ord, Eq, Show)
