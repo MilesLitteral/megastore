@@ -32,12 +32,6 @@ module KeyStore
     , unpackStore'
     , autoUnpack
     , last'
-    , (?) 
-    , (##) 
-    , (##?) 
-    , (#?) 
-    , (#!) 
-    , (#.)
     ) where
 
 import Log
@@ -64,13 +58,12 @@ import GHC.Exts (TYPE)
 import Data.Maybe   ()
 import Data.Monoid  ( First )
 import Control.Monad.Representable.Reader
-import Control.Lens ( (^?), (^.), re, view, from, lens, withLens, Getting, Getter, AReview, AnIso, Iso, Prism, Lens, ALens) 
+import Control.Lens
 import Control.Lens.TH
 
 -- | The Data Type itself
 newtype KeyStore = KeyStore {_contents :: [(String, BS.ByteString)]} deriving(Ord, Eq, Show)
 
--- |
 instance Binary KeyStore where
       put (KeyStore contents) = do put (map ((\x -> (show $ hash $ fst x, snd x))) contents)
       get = do t <- get 
