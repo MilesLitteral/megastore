@@ -34,11 +34,10 @@ module KeyStore
     , last'
     ) where
 
-import Log
-import Prisms
 import Codec.Picture
 import Codec.Compression.GZip
 import GHC.Utils.Misc (uncurry3)
+import GHC.Utils.IO.Unsafe (inlinePerformIO)
 
 import Data.List 
 import Data.Maybe
@@ -51,6 +50,7 @@ import qualified Data.ByteString.Internal as BS
 import qualified Data.Vector.Storable as V
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
+<<<<<<< Updated upstream
 
 import System.Directory (listDirectory)
 
@@ -61,6 +61,12 @@ import Control.Monad.Representable.Reader
 import Control.Lens
 import Control.Lens.TH
 
+=======
+
+import Control.Lens
+import Control.Lens.TH
+
+>>>>>>> Stashed changes
 -- | The Data Type itself
 newtype KeyStore = KeyStore {_contents :: [(String, BS.ByteString)]} deriving(Ord, Eq, Show)
 
@@ -113,10 +119,10 @@ loadImage path = do BS.readFile path
 loadImageDirectory :: FilePath -> IO [BS.ByteString]
 loadImageDirectory folderPath = do
   directory <- listDirectory folderPath
-  return $ (\path -> BS.inlinePerformIO $ BS.readFile $ folderPath ++ path) <$> directory
+  return $ (\path -> inlinePerformIO $ BS.readFile $ folderPath ++ path) <$> directory
 
 -- | Pass a List of ByteStrings (this is intended to work with loadImageDirectory), and a String for a naming scheme (ie: 'S' results in ['S0'..]) 
-createKeystoreWithBulk :: [BS.ByteString] -> String -> [(String, BS.ByteString)] --KeyStore
+createKeystoreWithBulk :: [BS.ByteString] -> String -> KeyStore
 createKeystoreWithBulk bytes nameScheme = KeyStore $ zip (map (\x -> nameScheme ++ show x) [0..(fromIntegral $ length bytes)]) bytes
 
 -- | Key can be Str here which will be hashed, either way 
