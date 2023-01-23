@@ -2,25 +2,43 @@
 
 {-|
 Module      : KeyStore
-Description : Short description
+Description : a haskell data and file type for efficient image storage 
 Copyright   : (c) Miles J. Litteral 2023
-License     : GPL-3
+License     : BSD-3
 Maintainer  : mandaloe2@gmail.com
-Stability   : experimental
+Stability   : release
 Portability : POSIX
 
-Here is a longer description of this module, containing some
-commentary with @some markup@.
+A Module for taking a directory of images (for example) and turning them into a key referencable data structure
+that will efficiently store all images. Here is a quick crash course:
+
+    @
+        a1  <- loadFile "s1.png"
+        a2  <- loadFile "s2.png"
+        a3  <- loadFile "s3.png"
+
+        let testSet = KeyStore [("s1", a1), ("s2", a2), ("s3", a3)]
+        saveStore "./test/testSet" testSet
+
+        loadedContents <- loadStore "./test/testSet.keystore"
+        autoUnpack "./results" loadedContents
+    @
 -} 
 module KeyStore
-    ( KeyStore(..)
+    (  -- * Records #Records#
+    KeyStore(..)
+    -- ** Prisms #Prisms#
     , _KeyStore
+    -- * I/O Functions     #Functions#
     , saveStore
     , loadStore
-    , loadImage
-    , loadImageDirectory
+    , loadFile
+    , loadDirectory
     , createKeystoreWithBulk
-    , fromJust
+    , unpackStore
+    , unpackStore'
+    , autoUnpack
+    -- ** Utility Functions #Functions#
     , append
     , search
     , search'
@@ -28,16 +46,11 @@ module KeyStore
     , keyExists'
     , remove
     , remove'
-    , unpackStore
-    , unpackStore'
-    , autoUnpack
     , last'
     ) where
 
 import Codec.Picture
 import Codec.Compression.GZip
-import GHC.Utils.Misc (uncurry3)
-import GHC.Utils.IO.Unsafe (inlinePerformIO)
 
 import Data.List 
 import Data.Maybe
@@ -50,32 +63,26 @@ import qualified Data.ByteString.Internal as BS
 import qualified Data.Vector.Storable as V
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-<<<<<<< Updated upstream
-
-import System.Directory (listDirectory)
-
-import GHC.Exts (TYPE)
-import Data.Maybe   ()
-import Data.Monoid  ( First )
-import Control.Monad.Representable.Reader
-import Control.Lens
-import Control.Lens.TH
-
-=======
 
 import Control.Lens
 import Control.Lens.TH
+import System.IO.Unsafe
 
->>>>>>> Stashed changes
--- | The Data Type itself
-newtype KeyStore = KeyStore {_contents :: [(String, BS.ByteString)]} deriving(Ord, Eq, Show)
+-- | The KeyStore Data Type itself, fundamentally it is a List of Tuples
+newtype KeyStore = 
+    KeyStore {
+        _contents :: [(String, BS.ByteString)] -- ^ the contents of the KeyStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a KeyStore
+    } deriving(Ord, Eq, Show)
 
+-- | The KeyStore Data Type's instance for serializing the data structure to file type,
 instance Binary KeyStore where
       put (KeyStore contents) = do put (map ((\x -> (show $ hash $ fst x, snd x))) contents)
       get = do t <- get 
                return (KeyStore t)
 
 makeLenses ''KeyStore
+-- | The _KeyStore prism is for manipulating KeyStores with the Lens library, mainly as a form of short hand convenience
+-- or more importantly as a means of data manipulation without all the back and fourth of packing and unpacking
 makePrisms ''KeyStore
 
 -- | Writes a KeyStore to physical memory, it does so via Data.ByteString.Lazy.WriteFile
@@ -112,16 +119,24 @@ autoUnpack savePath ks = do
     mapM_ (\x ->  unpackStore' (savePath ++ "/" ++ (fst x) ++ ".png") $ snd x) conts
 
 -- | Load an Image as a ByteString via Path
-loadImage :: FilePath -> IO (BS.ByteString)
-loadImage path = do BS.readFile path
+loadFile :: FilePath -> IO (BS.ByteString)
+loadFile path = do BS.readFile path
 
 -- | Load a directory of Images as ByteStrings via FilePath
-loadImageDirectory :: FilePath -> IO [BS.ByteString]
-loadImageDirectory folderPath = do
+loadDirectory :: FilePath -> IO [BS.ByteString]
+loadDirectory folderPath = do
   directory <- listDirectory folderPath
-  return $ (\path -> inlinePerformIO $ BS.readFile $ folderPath ++ path) <$> directory
+  mapM (BS.readFile) $ map (\path -> folderPath ++ path) directory
 
 -- | Pass a List of ByteStrings (this is intended to work with loadImageDirectory), and a String for a naming scheme (ie: 'S' results in ['S0'..]) 
+-- Example (Loading a Directory all at once):
+-- @
+--     assets <- loadDirectory "./assets"
+--     saveStore "./test/testSet" $ createKeystoreWithBulk assets "s"
+
+--     loadedContents <- loadStore "./test/testSet.keystore"
+--     autoUnpack "./results" loadedContents
+-- @
 createKeystoreWithBulk :: [BS.ByteString] -> String -> KeyStore
 createKeystoreWithBulk bytes nameScheme = KeyStore $ zip (map (\x -> nameScheme ++ show x) [0..(fromIntegral $ length bytes)]) bytes
 
