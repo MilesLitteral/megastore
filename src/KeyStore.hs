@@ -56,6 +56,7 @@ import Data.List
 import Data.Maybe
 import Data.Either
 import Data.Binary
+import Data.Text
 import Data.Hashable
 import System.Random
 import System.Directory
@@ -71,7 +72,7 @@ import System.IO.Unsafe
 -- | The KeyStore Data Type itself, fundamentally it is a List of Tuples
 newtype KeyStore = 
     KeyStore {
-        _contents :: [(String, BS.ByteString)] -- ^ the contents of the KeyStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a KeyStore
+        _contents :: [(Text, BS.ByteString)] -- ^ the contents of the KeyStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a KeyStore
     } deriving(Ord, Eq, Show)
 
 -- | The KeyStore Data Type's instance for serializing the data structure to file type,
@@ -80,9 +81,13 @@ instance Binary KeyStore where
       get = do t <- get 
                return (KeyStore t)
 
+instance At   KeyStore 
+instance Ixed KeyStore
+
 makeLenses ''KeyStore
 -- | The _KeyStore prism is for manipulating KeyStores with the Lens library, mainly as a form of short hand convenience
 -- or more importantly as a means of data manipulation without all the back and fourth of packing and unpacking
+-- there are also At and Ixed instances available 
 makePrisms ''KeyStore
 
 -- | Writes a KeyStore to physical memory, it does so via Data.ByteString.Lazy.WriteFile
@@ -137,31 +142,31 @@ loadDirectory folderPath = do
 --     loadedContents <- loadStore "./test/testSet.keystore"
 --     autoUnpack "./results" loadedContents
 -- @
-createKeystoreWithBulk :: [BS.ByteString] -> String -> KeyStore
+createKeystoreWithBulk :: [BS.ByteString] -> Text -> KeyStore
 createKeystoreWithBulk bytes nameScheme = KeyStore $ zip (map (\x -> nameScheme ++ show x) [0..(fromIntegral $ length bytes)]) bytes
 
 -- | Key can be Str here which will be hashed, either way 
 -- it will end up as a (String, BS.ByteString)
-append :: (String, BS.ByteString) -> KeyStore -> KeyStore
+append :: (Text, BS.ByteString) -> KeyStore -> KeyStore
 append info keystore = KeyStore $ [info] ++ (keystore ^. contents) 
 
 -- | This takes the ORIGINAL string which is tested against a hashed key
 -- Do not use hashed strings on it as it will result in Nothing every time
-search :: String -> [(String, BS.ByteString)] -> Maybe (BS.ByteString)
+search :: String -> [(Text, BS.ByteString)] -> Maybe (BS.ByteString)
 search a = fmap snd . find ((== show (hash a)) . fst)
 
 -- | This expects the literal hash as a key
-search' :: String -> [(String, BS.ByteString)] -> Maybe (BS.ByteString)
+search' :: String -> [(Text, BS.ByteString)] -> Maybe (BS.ByteString)
 search' a = fmap snd . find ((== a) . fst)
 
 -- | all the side effects of search come with this function
-keyExists :: String -> [(String, BS.ByteString)] -> Bool
+keyExists :: String -> [(Text, BS.ByteString)] -> Bool
 keyExists a store = case (search a store) of
     Nothing -> False
     Just _  -> True
 
 -- | all the side effects of search' come with this function
-keyExists' :: String -> [(String, BS.ByteString)] -> Bool
+keyExists' :: String -> [(Text, BS.ByteString)] -> Bool
 keyExists' a store = case (search' a store) of
     Nothing -> False
     Just _  -> True
@@ -173,9 +178,3 @@ remove str keystore = KeyStore $ filter ((== show str) . fst) (keystore ^. conte
 -- | Remove an entry by literal index 
 remove' :: Int -> KeyStore -> KeyStore
 remove' idx ls = KeyStore $ take idx (ls ^. contents) ++ drop (idx + 1) (ls ^. contents)
-
--- | The opposite of head, will return the final value of a list
-last' :: [a] -> a
-last' []  = error "no empty lists allowed"
-last' [a] = a
-last' xs  = xs !! (length xs - 1)
