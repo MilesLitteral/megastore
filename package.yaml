@@ -20,16 +20,16 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/keystore#readme>
 
 dependencies:
-- base >= 4.7   &&  <  5
-- ghc  >= 8.6.5 &&  <  9.4.2
-- bytestring  > 0.10.0.0 && <= 0.11.4.0
-- lens        > 5   && <= 5.2
-- adjunctions > 4.2 && <= 4.4.2
-- hashable    > 1.2.3.0  && <= 1.4.2.0
-- binary      > 0.8.0.0  && <= 0.8.9.1
-- JuicyPixels > 3.3.4    && <= 3.3.8
-- vector      > 0.12.1.2 && <= 0.13.0.0
-- mtl         > 2.2      && <= 2.2.2, 
+- base        >= 4.7   &&  <  5
+- ghc         >= 8.6.5 &&  <  9.4.2
+- bytestring  >  0.10.0.0 && <= 0.11.4.0
+- lens        >  5   && <= 5.2
+- adjunctions >  4.2 && <= 4.4.2
+- hashable    >  1.2.3.0  && <= 1.4.2.0
+- binary      >  0.8.0.0  && <= 0.8.9.1
+- JuicyPixels >  3.3.4    && <= 3.3.8
+- vector      >  0.12.1.2 && <= 0.13.0.0
+- mtl         >  2.2      && <= 2.2.2, 
 - zlib        >  0.6.0.0 && <= 0.6.3.0
 - directory   >  1.3.0.0 && <= 1.3.8.0 
 - random      >= 1.1     && <  1.2.1.1
