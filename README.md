@@ -1,4 +1,4 @@
-# keystore
+# ImageSet (previously keystore)
 
 A Haskell Filetype and Data Structure for super efficient storage of big image sets as one file
 
