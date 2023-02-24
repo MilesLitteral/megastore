@@ -24,5 +24,3 @@ main = do
     print "autoUnpack into ./test"
     autoUnpack "./test" loadedContents
     print "autoUnpack complete check folder"
-    print $ fromList [(1,"world"), (2,"hello")] ^.at 1
-    print $ fromList [(1,"world"), (2,"hello")] ^.at 2
