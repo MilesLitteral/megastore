@@ -35,6 +35,7 @@ dependencies:
 - random      >= 1.1     && <=  1.2.1.1
 - text        >= 2.0     && <= 2.0.2
 - text-show   >= 3.9.5   && <= 3.10
+- containers  == 0.6.6
 
 ghc-options:
 - -Wall
