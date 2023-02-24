@@ -49,11 +49,11 @@ module KeyStore
 import Codec.Picture
 import Codec.Compression.GZip
 
-import Data.List  (find)
-import Data.Maybe ()
 import Data.Either
 import Data.Binary
-import Data.Map (Map(..), toList, fromList)
+import Data.Maybe ()
+import Data.List  (find)
+import Data.Map   (Map, toList, fromList)
 import Data.Text hiding (append, take, drop, map, find, filter, zip, length)
 import System.Directory
 import qualified Data.ByteString.Internal as BS
@@ -74,7 +74,7 @@ makeLenses ''KeyStore
 
 -- | The KeyStore Data Type's instance for serializing the data structure to file type,
 instance Binary KeyStore where
-      put (KeyStore contents) = put (map (\x -> (fst x, snd x)) contents)
+      put (KeyStore cont) = put cont
       get = KeyStore <$> get
 
 -- | Writes a KeyStore to physical memory, it does so via Data.ByteString.Lazy.WriteFile
