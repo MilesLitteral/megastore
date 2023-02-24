@@ -1,12 +1,8 @@
 module Main (main) where
 
 import KeyStore
-import Data.Text (pack, Text(..))
-import Data.Map (fromList, Map)
-import Control.Lens ((^.))
-import Control.Lens.At (At(..))
+import Data.Text (pack)
 import System.Directory (createDirectoryIfMissing)
-import qualified Data.ByteString as BS
 
 main :: IO ()
 main = do
