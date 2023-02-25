@@ -6,7 +6,9 @@ cabal-version: 1.12
 
 name:           megastore
 version:        0.1.0.0
+synopsis:       Bulk image or strict bytestring storage
 description:    Please see the README on GitHub at <https://github.com/MilesLitteral/megastore/tree/release#readme>
+category:       Data Structures, Data, Image
 homepage:       https://github.com/MilesLitteral/megastore#readme
 bug-reports:    https://github.com/MilesLitteral/megastore/issues
 author:         Miles J. Litteral
@@ -24,8 +26,6 @@ source-repository head
   location: https://github.com/MilesLitteral/megastore
 
 library
-  exposed-modules:
-      KeyStore
   other-modules:
       Paths_megastore
   hs-source-dirs:

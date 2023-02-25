@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes, FlexibleInstances, PolyKinds, TemplateHaskell, ScopedTypeVariables #-}
 
 {-|
-Module      : KeyStore
+Module      : MegaStore
 Description : a haskell data and file type for efficient image storage 
 Copyright   : (c) Miles J. Litteral 2023
 License     : BSD-3
@@ -24,15 +24,15 @@ that will efficiently store all images. Here is a quick crash course:
         autoUnpack "./results" loadedContents
     @
 -}
-module KeyStore
+module MegaStore
     (  -- * Records #Records#
-    KeyStore(..)
+    MegaStore(..)
     -- * I/O Functions     #Functions#
     , saveStore
     , loadStore
     , loadFile
     , loadDirectory
-    , createKeystoreWithBulk
+    , createMegaStoreWithBulk
     , unpackStore
     , unpackStore'
     , autoUnpack
@@ -42,8 +42,8 @@ module KeyStore
     , keyExists
     , remove
     , remove'
-    , keystoreToMap
-    , mapToKeyStore
+    , megastoreToMap
+    , mapToMegaStore
     ) where
 
 import Codec.Picture
@@ -64,26 +64,26 @@ import TextShow
 import Control.Lens
 import Control.Lens.TH ()
 
--- | The KeyStore Data Type itself, fundamentally it is a List of Tuples
-newtype KeyStore =
-    KeyStore {
-        _contents :: [(Text, BS.ByteString)] -- ^ the contents of the KeyStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a KeyStore
+-- | The MegaStore Data Type itself, fundamentally it is a List of Tuples
+newtype MegaStore =
+    MegaStore {
+        _contents :: [(Text, BS.ByteString)] -- ^ the contents of the MegaStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a KeyStore
     } deriving(Ord, Eq, Show)
  
-makeLenses ''KeyStore
+makeLenses ''MegaStore
 
--- | The KeyStore Data Type's instance for serializing the data structure to file type,
-instance Binary KeyStore where
-      put (KeyStore cont) = put cont
-      get = KeyStore <$> get
+-- | The MegaStore Data Type's instance for serializing the data structure to file type,
+instance Binary MegaStore where
+      put (MegaStore cont) = put cont
+      get = MegaStore <$> get
 
--- | Writes a KeyStore to physical memory, it does so via Data.ByteString.Lazy.WriteFile
+-- | Writes a MegaStore to physical memory, it does so via Data.ByteString.Lazy.WriteFile
 -- Where the data is compressed and encoded to Strict ByteStrings
-saveStore :: String -> KeyStore -> IO ()
-saveStore name store = BL.writeFile (name ++ ".keystore") (compress $ encode store)
+saveStore :: String -> MegaStore -> IO ()
+saveStore name store = BL.writeFile (name ++ ".megastore") (compress $ encode store)
 
--- | Read a KeyStore from file system path, it reads the file, decodes, and decompresses the data
-loadStore :: FilePath -> IO KeyStore
+-- | Read a MegaStore from file system path, it reads the file, decodes, and decompresses the data
+loadStore :: FilePath -> IO MegaStore
 loadStore path = do
     file <- BL.readFile path
     return $ decode (decompress file)
@@ -99,9 +99,9 @@ unpackStore byteString = case decodePng byteString of
 unpackStore' :: String -> Image PixelRGBA8 -> IO ()
 unpackStore' unpackPath bytesS = writePng unpackPath bytesS
 
--- | Similar to unpackStore' except that it will turn an entire KeyStore record into it's 
+-- | Similar to unpackStore' except that it will turn an entire MegaStore record into it's 
 -- Original Image File Type(s) and save the result at a designated file save path 
-autoUnpack :: String -> KeyStore -> IO ()
+autoUnpack :: String -> MegaStore -> IO ()
 autoUnpack savePath ks = do
     createDirectoryIfMissing False savePath
     let conts = map (\x -> (unpack $ fst x,  convertRGBA8 $ fromRight (error "bad") (decodePng $ snd x))) (_contents ks)
@@ -121,18 +121,18 @@ loadDirectory folderPath = do
 -- Example (Loading a Directory all at once):
 -- @
 --     assets <- loadDirectory "./assets"
---     saveStore "./test/testSet" $ createKeystoreWithBulk assets "s"
+--     saveStore "./test/testSet" $ createMegastoreWithBulk assets "s"
 
---     loadedContents <- loadStore "./test/testSet.keystore"
+--     loadedContents <- loadStore "./test/testSet.megastore"
 --     autoUnpack "./results" loadedContents
 -- @
-createKeystoreWithBulk :: [BS.ByteString] -> Text -> KeyStore
-createKeystoreWithBulk bytes nameScheme = KeyStore $ zip (map (\x -> showt $ unpack nameScheme ++ show (x :: Integer)) [0..(fromIntegral $ length bytes)]) bytes
+createMegaStoreWithBulk :: [BS.ByteString] -> Text -> MegaStore
+createMegaStoreWithBulk bytes nameScheme = MegaStore $ zip (map (\x -> showt $ unpack nameScheme ++ show (x :: Integer)) [0..(fromIntegral $ length bytes)]) bytes
 
 -- | Key can be Str here which will be hashed, either way 
 -- it will end up as a (String, BS.ByteString)
-append :: (Text, BS.ByteString) -> KeyStore -> KeyStore
-append info keystore = KeyStore $ info : (keystore ^. contents)
+append :: (Text, BS.ByteString) -> MegaStore -> MegaStore
+append info megastore = MegaStore $ info : (megastore ^. contents)
 
 -- | This takes a key and returns a strict bytestring if the key is valid, Nothing is returned otherwise
 search :: String -> [(Text, BS.ByteString)] -> Maybe BS.ByteString
@@ -145,17 +145,17 @@ keyExists a store = case search a store of
     Just _  -> True
 
 -- | Search the entire store for a key and delete it's associated entry
-remove :: String -> KeyStore -> KeyStore
-remove str keystore = KeyStore $ filter ((== showt str) . fst) (keystore ^. contents)
+remove :: String -> MegaStore -> MegaStore
+remove str megastore = MegaStore $ filter ((== showt str) . fst) (megastore ^. contents)
 
--- | Remove an entry by literal index in the KeyStore
-remove' :: Int -> KeyStore -> KeyStore
-remove' idx ls = KeyStore $ take idx (ls ^. contents) ++ drop (idx + 1) (ls ^. contents)
+-- | Remove an entry by literal index in the MegaStore
+remove' :: Int -> MegaStore -> MegaStore
+remove' idx ls = MegaStore $ take idx (ls ^. contents) ++ drop (idx + 1) (ls ^. contents)
 
 -- | Convenience Function for easy conversion to a Data.Map
-keystoreToMap :: KeyStore -> Map Text BS.ByteString
-keystoreToMap k = fromList (_contents k)
+megastoreToMap :: MegaStore -> Map Text BS.ByteString
+megastoreToMap k = fromList (_contents k)
 
 -- |  Convenience Function for easy conversion from a Data.Map
-mapToKeyStore :: Map Text BS.ByteString -> KeyStore 
-mapToKeyStore m = KeyStore $ toList m
+mapToMegaStore :: Map Text BS.ByteString -> MegaStore 
+mapToMegaStore m = MegaStore $ toList m
