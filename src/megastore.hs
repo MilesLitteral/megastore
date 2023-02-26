@@ -25,7 +25,7 @@ that will efficiently store all images. Here is a quick crash course:
     @
 -}
 module MegaStore
-    (  -- * Records #Records#
+    (  -- * Data Types #Data Type#
     MegaStore(..)
     -- * I/O Functions     #Functions#
     , saveStore
