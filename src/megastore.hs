@@ -17,15 +17,16 @@ that will efficiently store all images. Here is a quick crash course:
         a2  <- loadFile "s2.png"
         a3  <- loadFile "s3.png"
 
-        let testSet = KeyStore [("s1", a1), ("s2", a2), ("s3", a3)]
+        let testSet = MegaStore [("s1", a1), ("s2", a2), ("s3", a3)]
         saveStore "./test/testSet" testSet
 
-        loadedContents <- loadStore "./test/testSet.keystore"
+        loadedContents <- loadStore "./test/testSet.megastore"
         autoUnpack "./results" loadedContents
     @
 -}
 module MegaStore
-    (  -- * Data Types #Data Type#
+    (  
+    -- * Data Types #Data Type#
     MegaStore(..)
     -- * I/O Functions     #Functions#
     , saveStore
@@ -67,7 +68,7 @@ import Control.Lens.TH ()
 -- | The MegaStore Data Type itself, fundamentally it is a List of Tuples
 newtype MegaStore =
     MegaStore {
-        _contents :: [(Text, BS.ByteString)] -- ^ the contents of the MegaStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a KeyStore
+        _contents :: [(Text, BS.ByteString)] -- ^ the contents of the MegaStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a MegaStore
     } deriving(Ord, Eq, Show)
  
 makeLenses ''MegaStore

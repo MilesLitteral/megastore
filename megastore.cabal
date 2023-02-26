@@ -26,8 +26,6 @@ source-repository head
   location: https://github.com/MilesLitteral/megastore
 
 library
-  exposed-modules:
-      MegaStore
   other-modules:
       Paths_megastore
   hs-source-dirs:
