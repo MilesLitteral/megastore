@@ -24,20 +24,16 @@ main = do
 mainV :: IO ()
 mainV = do
     a1 <- loadFile "granite.gguf"
-
     -- convert to vector
     let vec = byteStringToVector a1
-
     -- project down to k dimensions (e.g., k = 64)
     projected <- jllProject 64 vec
-
     -- convert back to ByteString
     let quantized = vectorToByteString projected
-
     -- store in MegaStore
     let vectorTestSetKV = MegaStore [(pack "granite-4-kv", quantized)]
     createDirectoryIfMissing False "./test"
     saveStore "./test/vectorTestSetKV" vectorTestSetKV
     putStrLn "Stored MegaStore with JLL projection applied"
 
-💡 Key point: JLL isn’t automatic—it only happens if you explicitly convert byt
+-- 💡 Key point: JLL isn’t automatic—it only happens if you explicitly convert byt
