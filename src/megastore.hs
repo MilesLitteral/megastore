@@ -65,6 +65,54 @@ import TextShow
 import Control.Lens
 import Control.Lens.TH ()
 
+import System.Random
+import qualified Data.Vector as V
+
+type Vector = V.Vector Double
+
+jllProject :: Int -> Vector -> IO Vector
+jllProject k v = do
+    gen <- newStdGen
+    let d = V.length v
+        randStream = randomRs (0.0, 1.0) gen
+
+        -- Sparse projection: {-1, 0, +1}
+        proj i j =
+            let r = randStream !! (i * d + j)
+            in if r < 1/6 then -1
+               else if r > 5/6 then 1
+               else 0
+
+        compute i =
+            sum [ (proj i j) * (v V.! j) | j <- [0..d-1] ]
+
+    return $ V.generate k compute
+
+
+byteStringToVector :: BS.ByteString -> Vector
+byteStringToVector bs =
+    V.fromList $ map (fromIntegral) (BS.unpack bs)
+
+vectorToByteString :: Vector -> BS.ByteString
+vectorToByteString v =
+    BS.pack $ map (fromIntegral . clamp) (V.toList v)
+  where
+    clamp x = max 0 (min 255 (round x))
+
+saveStoreWith :: StoreMode -> String -> MegaStore -> IO ()
+saveStoreWith mode name (MegaStore conts) = do
+    newConts <- mapM (process mode) conts
+    BL.writeFile (name ++ ".megastore") (compress $ encode (MegaStore newConts))
+
+process :: StoreMode -> (Text, BS.ByteString) -> IO (Text, BS.ByteString)
+process BinaryMode (k, v) =
+    return (k, hashAndCompress v)  -- your existing idea
+
+process (KVMode kdim) (k, v) = do
+    let vec = byteStringToVector v
+    projected <- jllProject kdim vec
+    let quantized = vectorToByteString projected
+    return (k, quantized)
 -- | The MegaStore Data Type itself, fundamentally it is a List of Tuples
 newtype MegaStore =
     MegaStore {

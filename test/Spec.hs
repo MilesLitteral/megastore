@@ -1,4 +1,4 @@
-module Spec (main) where
+10module Spec (main) where
 
 import MegaStore
 import Data.Text (pack)
@@ -20,16 +20,24 @@ main = do
     print "autoUnpack into ./test"
     autoUnpack "./test" loadedContents
     print "autoUnpack complete check folder"
-
+    
 mainV :: IO ()
 mainV = do
-    a1  <- loadFile "granite.gguf"
+    a1 <- loadFile "granite.gguf"
 
-    let vectorTestSet = MegaStore [(pack "granite-4", a1)]
+    -- convert to vector
+    let vec = byteStringToVector a1
+
+    -- project down to k dimensions (e.g., k = 64)
+    projected <- jllProject 64 vec
+
+    -- convert back to ByteString
+    let quantized = vectorToByteString projected
+
+    -- store in MegaStore
+    let vectorTestSetKV = MegaStore [(pack "granite-4-kv", quantized)]
     createDirectoryIfMissing False "./test"
-    saveStore "./test/vectorTestSet" vectorTestSet -- keystore of images
-    print "Loading MegaStore vectorTestSet"
-    loadedContents <- loadStore "./test/vectorTestSet.megastore"
-    print "autoUnpack into ./test"
-    autoUnpack "./test" loadedContents
-    print "autoUnpack complete check folder"
+    saveStore "./test/vectorTestSetKV" vectorTestSetKV
+    putStrLn "Stored MegaStore with JLL projection applied"
+
+💡 Key point: JLL isn’t automatic—it only happens if you explicitly convert byt
