@@ -1,43 +1,19 @@
-{-# LANGUAGE RankNTypes, FlexibleInstances, PolyKinds, TemplateHaskell, ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-{-|
-Module      : MegaStore
-Description : a haskell data and file type for efficient image storage 
-Copyright   : (c) Miles J. Litteral 2023
-License     : BSD-3
-Maintainer  : mandaloe2@gmail.com
-Stability   : release
-Portability : POSIX
-
-A Module for taking a directory of images (for example) and turning them into a key referencable data structure
-that will efficiently store all images. Here is a quick crash course:
-
-    @
-        a1  <- loadFile "s1.png"
-        a2  <- loadFile "s2.png"
-        a3  <- loadFile "s3.png"
-
-        let testSet = MegaStore [("s1", a1), ("s2", a2), ("s3", a3)]
-        saveStore "./test/testSet" testSet
-
-        loadedContents <- loadStore "./test/testSet.megastore"
-        autoUnpack "./results" loadedContents
-    @
--}
+-- | MegaStore: keyed binary archive storage.
+-- The legacy on-disk format remains: gzip (Data.Binary.encode MegaStore).
 module MegaStore
-    (  
-    -- * Data Types #Data Type#
-    MegaStore(..)
-    -- * I/O Functions     #Functions#
+    ( MegaStore(..)
+    , StoreMode(..)
     , saveStore
     , loadStore
+    , saveStoreWith
     , loadFile
     , loadDirectory
     , createMegaStoreWithBulk
     , unpackStore
     , unpackStore'
     , autoUnpack
-    -- ** Utility Functions #Functions#
     , append
     , search
     , keyExists
@@ -45,166 +21,149 @@ module MegaStore
     , remove'
     , megastoreToMap
     , mapToMegaStore
+    , jllProject
     ) where
 
-import Codec.Picture
-import Codec.Compression.GZip
-
-import Data.Either
-import Data.Binary
-import Data.Maybe ()
-import Data.List  (find)
-import Data.Map   (Map, toList, fromList)
-import Data.Text hiding (append, take, drop, map, find, filter, zip, length)
-import System.Directory
-import qualified Data.ByteString.Internal as BS
+import Codec.Picture (Image, PixelRGBA8, convertRGBA8, decodePng, writePng)
+import Codec.Compression.GZip (compress, decompress)
+import Control.Lens (makeLenses, (^.))
+import Data.Binary (Binary(..), decodeOrFail, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-
-import TextShow
-import Control.Lens
-import Control.Lens.TH ()
-
-import System.Random
+import Data.List (find)
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Vector as V
+import System.Directory (createDirectoryIfMissing, listDirectory)
+import System.FilePath ((</>), takeExtension)
+import System.Random (newStdGen, randomRs)
+
+newtype MegaStore = MegaStore
+    { _contents :: [(Text, BS.ByteString)]
+    } deriving (Ord, Eq, Show)
+
+makeLenses ''MegaStore
+
+instance Binary MegaStore where
+    put (MegaStore entries) = put entries
+    get = MegaStore <$> get
+
+-- | BinaryMode is lossless. KVMode is a research-only, lossy vector
+-- projection; it does not preserve original bytes or support inverse decode.
+data StoreMode = BinaryMode | KVMode Int
+    deriving (Eq, Show)
 
 type Vector = V.Vector Double
 
+-- | Experimental JL-style sparse projection. Not an archival codec.
+-- Uses a fresh random projection for each call; no seed/matrix is persisted.
 jllProject :: Int -> Vector -> IO Vector
-jllProject k v = do
-    gen <- newStdGen
-    let d = V.length v
-        randStream = randomRs (0.0, 1.0) gen
-
-        -- Sparse projection: {-1, 0, +1}
-        proj i j =
-            let r = randStream !! (i * d + j)
-            in if r < 1/6 then -1
-               else if r > 5/6 then 1
-               else 0
-
-        compute i =
-            sum [ (proj i j) * (v V.! j) | j <- [0..d-1] ]
-
-    return $ V.generate k compute
-
+jllProject k vec
+    | k < 1 = ioError (userError "jllProject: k must be positive")
+    | otherwise = do
+        gen <- newStdGen
+        let d = V.length vec
+            randomValues = V.fromList (take (k * d) (randomRs (0.0, 1.0) gen :: [Double]))
+            project i j =
+                let r = randomValues V.! (i * d + j)
+                in if r < (1 / 6) then (-1.0)
+                   else if r > (5 / 6) then 1.0 else 0.0
+            compute i = sum [project i j * (vec V.! j) | j <- [0 .. d - 1]]
+        pure $ V.generate k compute
 
 byteStringToVector :: BS.ByteString -> Vector
-byteStringToVector bs =
-    V.fromList $ map (fromIntegral) (BS.unpack bs)
+byteStringToVector = V.fromList . map fromIntegral . BS.unpack
 
 vectorToByteString :: Vector -> BS.ByteString
-vectorToByteString v =
-    BS.pack $ map (fromIntegral . clamp) (V.toList v)
+vectorToByteString vec = BS.pack $ map (fromIntegral . clamp) (V.toList vec)
   where
-    clamp x = max 0 (min 255 (round x))
+    clamp x = max (0 :: Int) (min 255 (round x))
 
+-- | Explicit modes. BinaryMode is just lossless archive storage;
+-- archive-level gzip is applied once in saveStore. KVMode is lossy.
 saveStoreWith :: StoreMode -> String -> MegaStore -> IO ()
-saveStoreWith mode name (MegaStore conts) = do
-    newConts <- mapM (process mode) conts
-    BL.writeFile (name ++ ".megastore") (compress $ encode (MegaStore newConts))
+saveStoreWith BinaryMode path store = saveStore path store
+saveStoreWith (KVMode k) path (MegaStore entries) = do
+    projected <- mapM projectEntry entries
+    saveStore path (MegaStore projected)
+  where
+    projectEntry (key, bytes) = do
+        vec <- jllProject k (byteStringToVector bytes)
+        pure (key, vectorToByteString vec)
 
-process :: StoreMode -> (Text, BS.ByteString) -> IO (Text, BS.ByteString)
-process BinaryMode (k, v) =
-    return (k, hashAndCompress v)  -- your existing idea
+-- | Appends .megastore unless already supplied.
+archivePath :: FilePath -> FilePath
+archivePath path
+    | takeExtension path == ".megastore" = path
+    | otherwise = path ++ ".megastore"
 
-process (KVMode kdim) (k, v) = do
-    let vec = byteStringToVector v
-    projected <- jllProject kdim vec
-    let quantized = vectorToByteString projected
-    return (k, quantized)
--- | The MegaStore Data Type itself, fundamentally it is a List of Tuples
-newtype MegaStore =
-    MegaStore {
-        _contents :: [(Text, BS.ByteString)] -- ^ the contents of the MegaStore, while made for images it is acknowledged anything that satisfies the constraint/assertion may be a MegaStore
-    } deriving(Ord, Eq, Show)
- 
-makeLenses ''MegaStore
-
--- | The MegaStore Data Type's instance for serializing the data structure to file type,
-instance Binary MegaStore where
-      put (MegaStore cont) = put cont
-      get = MegaStore <$> get
-
--- | Writes a MegaStore to physical memory, it does so via Data.ByteString.Lazy.WriteFile
--- Where the data is compressed and encoded to Strict ByteStrings
 saveStore :: String -> MegaStore -> IO ()
-saveStore name store = BL.writeFile (name ++ ".megastore") (compress $ encode store)
+saveStore path store = BL.writeFile (archivePath path) (compress $ encode store)
 
--- | Read a MegaStore from file system path, it reads the file, decodes, and decompresses the data
+-- | Decoding errors are reported rather than using partial Data.Binary.decode.
+-- Callers should still place resource limits on untrusted archives.
 loadStore :: FilePath -> IO MegaStore
 loadStore path = do
-    file <- BL.readFile path
-    return $ decode (decompress file)
+    bytes <- BL.readFile path
+    case decodeOrFail (decompress bytes) of
+        Left (_, _, err) -> ioError (userError ("MegaStore decode error: " ++ err))
+        Right (_, _, store) -> pure store
 
--- | Convert a ByteString back into it's original Image Data Type
 unpackStore :: BS.ByteString -> IO (Image PixelRGBA8)
-unpackStore byteString = case decodePng byteString of
-                                 Left  _   -> error "bad image"
-                                 Right img -> return $ convertRGBA8 img
+unpackStore bytes = case decodePng bytes of
+    Left err -> ioError (userError ("Bad PNG: " ++ err))
+    Right img -> pure (convertRGBA8 img)
 
--- | Convert a ByteString back into it's original Image File Type 
--- You have the added option of designating where the file will be savved
-unpackStore' :: String -> Image PixelRGBA8 -> IO ()
-unpackStore' unpackPath bytesS = writePng unpackPath bytesS
+unpackStore' :: FilePath -> Image PixelRGBA8 -> IO ()
+unpackStore' = writePng
 
--- | Similar to unpackStore' except that it will turn an entire MegaStore record into it's 
--- Original Image File Type(s) and save the result at a designated file save path 
-autoUnpack :: String -> MegaStore -> IO ()
-autoUnpack savePath ks = do
-    createDirectoryIfMissing False savePath
-    let conts = map (\x -> (unpack $ fst x,  convertRGBA8 $ fromRight (error "bad") (decodePng $ snd x))) (_contents ks)
-    mapM_ (\x ->  unpackStore' (savePath ++ "/" ++ fst x ++ ".png") $ snd x) conts
+autoUnpack :: FilePath -> MegaStore -> IO ()
+autoUnpack dir (MegaStore entries) = do
+    createDirectoryIfMissing True dir
+    mapM_ writeEntry entries
+  where
+    -- For untrusted keys, validate/sanitize names before writing paths.
+    writeEntry (key, bytes) = do
+        img <- unpackStore bytes
+        unpackStore' (dir </> T.unpack key ++ ".png") img
 
--- | Load an Image as a ByteString via Path
 loadFile :: FilePath -> IO BS.ByteString
-loadFile path = BS.readFile path
+loadFile = BS.readFile
 
--- | Load a directory of Images as ByteStrings via FilePath
 loadDirectory :: FilePath -> IO [BS.ByteString]
-loadDirectory folderPath = do
-  directory <- listDirectory folderPath
-  mapM (BS.readFile . (folderPath ++)) directory
+loadDirectory dir = do
+    files <- listDirectory dir
+    mapM (BS.readFile . (dir </>)) files
 
--- | Pass a List of ByteStrings (this is intended to work with loadImageDirectory), and a String for a naming scheme (ie: 'S' results in ['S0'..]) 
--- Example (Loading a Directory all at once):
--- @
---     assets <- loadDirectory "./assets"
---     saveStore "./test/testSet" $ createMegastoreWithBulk assets "s"
-
---     loadedContents <- loadStore "./test/testSet.megastore"
---     autoUnpack "./results" loadedContents
--- @
 createMegaStoreWithBulk :: [BS.ByteString] -> Text -> MegaStore
-createMegaStoreWithBulk bytes nameScheme = MegaStore $ zip (map (\x -> showt $ unpack nameScheme ++ show (x :: Integer)) [0..(fromIntegral $ length bytes)]) bytes
+createMegaStoreWithBulk bytes prefix = MegaStore $
+    zipWith (\n b -> (prefix `T.append` T.pack (show (n :: Int)), b)) [0..] bytes
 
--- | Key can be Str here which will be hashed, either way 
--- it will end up as a (String, BS.ByteString)
 append :: (Text, BS.ByteString) -> MegaStore -> MegaStore
-append info megastore = MegaStore $ info : (megastore ^. contents)
+append entry (MegaStore entries) = MegaStore (entry : entries)
 
--- | This takes a key and returns a strict bytestring if the key is valid, Nothing is returned otherwise
+-- | Exact text key lookup. To use hashed identifiers, hash the key
+-- on BOTH insertion and lookup in the caller (not enforced by MegaStore).
 search :: String -> [(Text, BS.ByteString)] -> Maybe BS.ByteString
-search a = fmap snd . find ((== showt a) . fst)
+search key = fmap snd . find ((== T.pack key) . fst)
 
--- | all the side effects of search come with this function
 keyExists :: String -> [(Text, BS.ByteString)] -> Bool
-keyExists a store = case search a store of
+keyExists key entries = case search key entries of
+    Just _ -> True
     Nothing -> False
-    Just _  -> True
 
--- | Search the entire store for a key and delete it's associated entry
 remove :: String -> MegaStore -> MegaStore
-remove str megastore = MegaStore $ filter ((== showt str) . fst) (megastore ^. contents)
+remove key (MegaStore entries) = MegaStore $
+    filter ((/= T.pack key) . fst) entries
 
--- | Remove an entry by literal index in the MegaStore
 remove' :: Int -> MegaStore -> MegaStore
-remove' idx ls = MegaStore $ take idx (ls ^. contents) ++ drop (idx + 1) (ls ^. contents)
+remove' idx (MegaStore entries) = MegaStore $
+    take idx entries ++ drop (idx + 1) entries
 
--- | Convenience Function for easy conversion to a Data.Map
 megastoreToMap :: MegaStore -> Map Text BS.ByteString
-megastoreToMap k = fromList (_contents k)
+megastoreToMap (MegaStore entries) = Map.fromList entries
 
--- |  Convenience Function for easy conversion from a Data.Map
-mapToMegaStore :: Map Text BS.ByteString -> MegaStore 
-mapToMegaStore m = MegaStore $ toList m
+mapToMegaStore :: Map Text BS.ByteString -> MegaStore
+mapToMegaStore = MegaStore . Map.toList
